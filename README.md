@@ -19,8 +19,7 @@
 10. [API Reference](#-api-reference)
 11. [Project File Structure](#-project-file-structure)
 12. [How Virtualization Works](#-how-virtualization-works-under-the-hood)
-13. [Troubleshooting](#-troubleshooting)
-14. [References](#-references)
+13. [References](#-references)
 
 ---
 
@@ -37,11 +36,6 @@ Users can:
 - **Access VM console** via VNC viewer
 - **Manage OS images (ISOs)** for new VM installation
 - **Access everything** from a clean professional browser-based dashboard
-
-The application was built using **AI-assisted development** (Claude by Anthropic) for code generation, in line with the project brief allowing LLM usage.
-
-> **Submission note:** The submitted source ZIP should contain only source files, templates, `requirements.txt`, and `README.md`. Runtime-generated files such as `venv/`, `__pycache__/`, `disks/*.qcow2`, and large ISO/IMG files should not be submitted; they are created or downloaded during setup.
-
 
 ---
 
@@ -274,7 +268,7 @@ sudo chmod -R o+rx ~/my-virtualbox/iso
 
 ### Step 6 — Setup Project Folder and Python Environment
 
-Place the project source files inside `~/my-virtualbox/`. If you downloaded the submitted ZIP, extract it first and then move/copy the files into this folder.
+Place the project source files inside `~/my-virtualbox/`.
 
 ```bash
 cd ~
@@ -474,62 +468,6 @@ KVM is faster and more efficient — it's the same technology used by AWS, Googl
 
 ---
 
-## ⚠️ Known Limitations
-
-This is an academic prototype, not a production hypervisor platform.
-
-- VM access is through VNC command guidance, not an embedded noVNC browser console.
-- VM names should be simple, such as `test-vm` or `ubuntu1`; avoid spaces and special characters.
-- `.img` files are treated as bootable disk images. For best reliability, use lightweight cloud images such as CirrOS for demo.
-- `.iso` files are installer media. They create a blank disk and require manual OS installation through the VNC console.
-- The Flask app runs with `debug=True` for lab demonstration; this should be disabled in production.
-
----
-
-## 🔧 Troubleshooting
-
-### libvirtd not running
-```bash
-sudo systemctl restart libvirtd
-sudo systemctl status libvirtd
-```
-
-### Permission denied on disk/iso
-```bash
-sudo chmod o+x /home/$USER
-sudo chmod -R o+rw ~/my-virtualbox/disks
-sudo chmod -R o+rx ~/my-virtualbox/iso
-```
-
-### Network not found error
-```bash
-sudo virsh net-start default
-sudo virsh net-autostart default
-virsh net-list --all
-```
-
-### VM stuck after failed creation
-```bash
-virsh --connect qemu:///system destroy <vm-name> 2>/dev/null
-virsh --connect qemu:///system undefine <vm-name> 2>/dev/null
-rm -f ~/my-virtualbox/disks/<vm-name>.qcow2
-```
-
-### Port 5000 already in use
-```bash
-sudo lsof -i :5000
-sudo kill <PID>
-```
-
-### pip install fails (pkg-config missing)
-```bash
-deactivate
-sudo apt install -y pkg-config libvirt-dev python3-dev build-essential
-source ~/my-virtualbox/venv/bin/activate
-pip install libvirt-python
-```
-
----
 
 ## 📖 References
 
@@ -544,21 +482,11 @@ pip install libvirt-python
 
 ## 👤 Author
 
-**Student Name:** *(Your Name)*  
-**Student ID:** *(Your ID)*  
-**Course:** Cloud Computing / Virtualization Lab  
+**Student Name:** *Ibnul Mansib*  
+**Student ID:** *2020331061*  
+**Course:** Cloud Computing Lab  
 **Submission Date:** *(Date)*  
-**Institution:** *(Your University/College)*  
+**Institution:** *Shahjalal University of Science and Technology*  
 **Host Machine:** HP EliteBook 840 G6 — Ubuntu 24.04 LTS  
 
 ---
-
-## 📝 Note on AI Assistance
-
-This project was built with the assistance of **Claude (Anthropic)** for code generation and debugging, as explicitly permitted by the course project brief: *"You can use any LLMs to build it."*
-
-All code was reviewed, understood, tested, and deployed by the student on a physical Ubuntu machine.
-
----
-
-*Built with ❤️ using Python · Flask · KVM · QEMU · libvirt on Ubuntu 24.04 LTS*
