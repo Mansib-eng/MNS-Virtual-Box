@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNS VirtualBox</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:       #080b12;
+            --bg2:      #0d1117;
+            --bg3:      #131a24;
+            --border:   #1e2d3d;
+            --border2:  #243447;
+            --accent:   #00d4ff;
+            --green:    #00e676;
+            --green2:   #00c853;
+            --red:      #ff5252;
+            --orange:   #ffab40;
+            --text:     #e8eef4;
+            --text2:    #7a8fa6;
+            --text3:    #3d5166;
+            --font:     'Syne', sans-serif;
+            --mono:     'JetBrains Mono', monospace;
+        }
+
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── NAVBAR ── */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(8,11,18,0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 62px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .nav-logo {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--accent), #0066ff);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            box-shadow: 0 0 18px rgba(0,212,255,0.3);
+        }
+        .nav-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .nav-title span { color: var(--accent); }
+        .nav-pill {
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            background: rgba(0,212,255,0.08);
+            border: 1px solid rgba(0,212,255,0.15);
+            color: var(--accent);
+            padding: 3px 9px;
+            border-radius: 20px;
+            letter-spacing: 0.05em;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text2);
+        }
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 7px var(--green);
+            animation: blink 2s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* ── MAIN ── */
+        .main {
+            position: relative;
+            z-index: 1;
+            padding: 30px 32px;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 28px;
+        }
+        .page-title {
+            font-size: 1.7rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+        .page-title small {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 400;
+            color: var(--text3);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-family: var(--mono);
+            margin-bottom: 5px;
+        }
+
+        /* ── STAT CARDS ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            transition: border-color 0.2s, transform 0.2s;
+            cursor: default;
+        }
+        .stat-card:hover {
+            border-color: var(--border2);
+            transform: translateY(-2px);
+        }
+        .stat-label {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            color: var(--text);
+        }
+        .stat-value.c-accent { color: var(--accent); }
+        .stat-value.c-green  { color: var(--green);  }
+        .stat-sub {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--text2);
+            margin-top: 5px;
+        }
+        .stat-bar {
+            margin-top: 10px;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent), #0077cc);
+        }
+        .stat-bar-fill.g {
+            background: linear-gradient(90deg, var(--green), var(--green2));
+        }
+
+        /* ── SECTION HEADER ── */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .section-title {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 3px;
+            height: 13px;
+            background: var(--accent);
+            border-radius: 2px;
+            display: block;
+        }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--font);
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+        .btn:not(:disabled):hover  { transform: translateY(-1px); }
+        .btn:not(:disabled):active { transform: translateY(0); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #0088dd);
+            color: #000;
+            font-weight: 800;
+            box-shadow: 0 4px 14px rgba(0,212,255,0.25);
+        }
+        .btn-primary:not(:disabled):hover {
+            box-shadow: 0 6px 20px rgba(0,212,255,0.4);
+        }
+        .btn-success {
+            background: rgba(0,230,118,0.08);
+            color: var(--green);
+            border: 1px solid rgba(0,230,118,0.2);
+        }
+        .btn-success:not(:disabled):hover {
+            background: rgba(0,230,118,0.15);
+            border-color: var(--green);
+        }
+        .btn-warning {
+            background: rgba(255,171,64,0.08);
+            color: var(--orange);
+            border: 1px solid rgba(255,171,64,0.2);
+        }
+        .btn-warning:not(:disabled):hover {
+            background: rgba(255,171,64,0.15);
+            border-color: var(--orange);
+        }
+        .btn-danger {
+            background: rgba(255,82,82,0.08);
+            color: var(--red);
+            border: 1px solid rgba(255,82,82,0.18);
+        }
+        .btn-danger:not(:disabled):hover {
+            background: rgba(255,82,82,0.15);
+            border-color: var(--red);
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text2);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:not(:disabled):hover {
+            background: var(--bg3);
+            color: var(--text);
+        }
+
+        /* ── VM TABLE ── */
+        .table-wrap {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+        .vm-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .vm-table thead tr {
+            background: var(--bg3);
+            border-bottom: 1px solid var(--border);
+        }
+        .vm-table th {
+            padding: 11px 20px;
+            text-align: left;
+            font-family: var(--mono);
+            font-size: 0.63rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text3);
+        }
+        .vm-table td {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .vm-table tbody tr:last-child td { border-bottom: none; }
+        .vm-table tbody tr { transition: background 0.12s; }
+        .vm-table tbody tr:hover td { background: rgba(255,255,255,0.015); }
+
+        .vm-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .vm-icon {
+            width: 34px;
+            height: 34px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        }
+        .vm-name-text {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .vm-sub {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--text3);
+            margin-top: 2px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            font-weight: 500;
+        }
+        .bdot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .badge-running {
+            background: rgba(0,230,118,0.08);
+            color: var(--green);
+            border: 1px solid rgba(0,230,118,0.18);
+        }
+        .badge-running .bdot {
+            background: var(--green);
+            box-shadow: 0 0 5px var(--green);
+            animation: blink 2s infinite;
+        }
+        .badge-stopped, .badge-shut\ off {
+            background: rgba(255,82,82,0.07);
+            color: var(--red);
+            border: 1px solid rgba(255,82,82,0.15);
+        }
+        .badge-stopped .bdot { background: var(--red); }
+        .badge-paused {
+            background: rgba(255,171,64,0.07);
+            color: var(--orange);
+            border: 1px solid rgba(255,171,64,0.15);
+        }
+        .badge-paused .bdot { background: var(--orange); }
+
+        /* Chips */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text2);
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        .id-text {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text3);
+        }
+
+        .action-row { display: flex; gap: 7px; align-items: center; }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        .empty-icon { font-size: 2.8rem; opacity: 0.2; margin-bottom: 14px; }
+        .empty-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text2);
+            margin-bottom: 6px;
+        }
+        .empty-sub {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text3);
+        }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+            animation: fadein 0.2s ease;
+        }
+        @keyframes fadein { from{opacity:0} to{opacity:1} }
+
+        .modal {
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            border-radius: 16px;
+            padding: 28px;
+            width: 480px;
+            max-width: 95vw;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+            animation: slideup 0.22s ease;
+        }
+        @keyframes slideup {
+            from { transform: translateY(16px); opacity:0; }
+            to   { transform: translateY(0);    opacity:1; }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+        .modal-close {
+            width: 28px;
+            height: 28px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            transition: 0.15s;
+        }
+        .modal-close:hover { background: var(--border2); color: var(--text); }
+
+        /* Form */
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            font-family: var(--mono);
+            font-size: 0.67rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text2);
+            margin-bottom: 6px;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 13px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            appearance: none;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,212,255,0.08);
+        }
+        .form-hint {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--text3);
+            margin-top: 4px;
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* Progress steps */
+        .create-progress { display: none; margin: 18px 0 4px; }
+        .steps-row { display: flex; align-items: center; }
+        .step-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            flex: 1;
+            opacity: 0.2;
+            transition: all 0.3s;
+        }
+        .step-item.active { opacity: 1; }
+        .step-item.done   { opacity: 0.65; }
+        .step-circle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+        .step-item.active .step-circle {
+            border-color: var(--accent);
+            background: rgba(0,212,255,0.08);
+            box-shadow: 0 0 14px rgba(0,212,255,0.2);
+        }
+        .step-item.done .step-circle {
+            border-color: var(--green);
+            background: rgba(0,230,118,0.08);
+        }
+        .step-lbl {
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            color: var(--text3);
+        }
+        .step-item.active .step-lbl { color: var(--accent); }
+        .step-item.done  .step-lbl  { color: var(--green);  }
+        .step-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+            max-width: 36px;
+            margin-bottom: 18px;
+        }
+        .progress-msg {
+            text-align: center;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text2);
+            min-height: 18px;
+            margin-top: 8px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 22px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed;
+            bottom: 26px;
+            right: 26px;
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            border-radius: 10px;
+            padding: 11px 18px;
+            z-index: 999;
+            display: none;
+            font-size: 0.83rem;
+            font-weight: 600;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            max-width: 300px;
+            animation: toastin 0.25s ease;
+        }
+        @keyframes toastin {
+            from { transform: translateX(16px); opacity:0; }
+            to   { transform: translateX(0);    opacity:1; }
+        }
+
+        /* ── SPINNER ── */
+        .spinner {
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── SHAKE ── */
+        @keyframes shake {
+            0%,100%{ transform:translateX(0);   }
+            20%    { transform:translateX(-7px); }
+            40%    { transform:translateX(7px);  }
+            60%    { transform:translateX(-4px); }
+            80%    { transform:translateX(4px);  }
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+    <div class="nav-brand">
+        <div class="nav-logo">⚡</div>
+        <div class="nav-title">MNS <span>VirtualBox</span></div>
+        <div class="nav-pill">KVM · QEMU · libvirt</div>
+    </div>
+    <div class="nav-right">
+        <div class="status-dot"></div>
+        Hypervisor Active
+    </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-title">
+            <small>Dashboard</small>
+            Virtual Machines
+        </div>
+        <button class="btn btn-primary"
+                onclick="document.getElementById('createModal').classList.add('active')">
+            ＋ &nbsp;New VM
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">CPU Usage</div>
+            <div class="stat-value c-accent">{{ host_stats.cpu_percent }}%</div>
+            <div class="stat-sub">Host processor</div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill" style="width:{{ host_stats.cpu_percent }}%"></div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Memory</div>
+            <div class="stat-value">{{ host_stats.ram_used_gb }}<span style="font-size:1rem;color:var(--text2)"> GB</span></div>
+            <div class="stat-sub">of {{ host_stats.ram_total_gb }} GB total</div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill" style="width:{{ host_stats.ram_percent }}%"></div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Disk</div>
+            <div class="stat-value">{{ host_stats.disk_used_gb }}<span style="font-size:1rem;color:var(--text2)"> GB</span></div>
+            <div class="stat-sub">of {{ host_stats.disk_total_gb }} GB used</div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill g" style="width:{{ [((host_stats.disk_used_gb / host_stats.disk_total_gb) * 100)|round, 100]|min }}%"></div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total VMs</div>
+            <div class="stat-value c-accent">{{ vms|length }}</div>
+            <div class="stat-sub">Registered instances</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Running</div>
+            <div class="stat-value c-green">{{ vms|selectattr('state','equalto','running')|list|length }}</div>
+            <div class="stat-sub">Active right now</div>
+        </div>
+    </div>
+
+    <!-- VM Table -->
+    <div class="section-header">
+        <div class="section-title">Instances</div>
+    </div>
+
+    <div class="table-wrap">
+        {% if vms %}
+        <table class="vm-table">
+            <thead>
+                <tr>
+                    <th>Instance</th>
+                    <th>Status</th>
+                    <th>Resources</th>
+                    <th>ID</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vm in vms %}
+                <tr>
+                    <td>
+                        <div class="vm-name-cell">
+                            <div class="vm-icon">🖥</div>
+                            <div>
+                                <a href="/vm/{{ vm.name }}"
+   style="color:var(--text);text-decoration:none;transition:color 0.15s"
+   onmouseover="this.style.color='var(--accent)'"
+   onmouseout="this.style.color='var(--text)'">
+   {{ vm.name }}
+</a>
+                                <div class="vm-sub">kvm · qemu · x86_64</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ vm.state }}">
+                            <span class="bdot"></span>
+                            {{ vm.state }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="chip-row">
+                            <span class="chip">🧠 {{ vm.ram_mb }} MB</span>
+                            <span class="chip">⚡ {{ vm.vcpus }} vCPU</span>
+                        </div>
+                    </td>
+                    <td><span class="id-text">{{ vm.id }}</span></td>
+                    <td>
+                        <div class="action-row">
+                            {% if vm.state != 'running' %}
+                            <button class="btn btn-success"
+                                    data-vm="{{ vm.name }}"
+                                    data-action="start"
+                                    onclick="startVM('{{ vm.name }}')">
+                                ▶ Start
+                            </button>
+                            {% else %}
+                            <button class="btn btn-warning"
+                                    data-vm="{{ vm.name }}"
+                                    data-action="stop"
+                                    onclick="stopVM('{{ vm.name }}')">
+                                ⏹ Stop
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-danger"
+                                    data-vm="{{ vm.name }}"
+                                    data-action="delete"
+                                    onclick="deleteVM('{{ vm.name }}')">
+                                🗑 Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🖥️</div>
+            <div class="empty-title">No virtual machines yet</div>
+            <div class="empty-sub">Click "＋ New VM" to launch your first instance</div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- CREATE VM MODAL -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">🖥️ &nbsp;New Virtual Machine</div>
+            <button class="modal-close"
+                    onclick="document.getElementById('createModal').classList.remove('active')">✕</button>
+        </div>
+
+        <div class="form-group">
+            <label>Instance Name</label>
+            <input type="text" id="vmName"
+                   placeholder="e.g. ubuntu-server-1"
+                   oninput="this.style.borderColor=''">
+            <div class="form-hint">Letters, numbers, hyphens and underscores only</div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>RAM (MB)</label>
+                <input type="number" id="vmRam" value="2048" min="512" step="512">
+                <div class="form-hint">Min 512 MB</div>
+            </div>
+            <div class="form-group">
+                <label>vCPUs</label>
+                <input type="number" id="vmCpus" value="1" min="1" max="8">
+                <div class="form-hint">Max 8 cores</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Disk Size (GB)</label>
+            <input type="number" id="vmDisk" value="10" min="5">
+            <div class="form-hint">Min 5 GB · stored as .qcow2 image</div>
+        </div>
+
+        <div class="form-group">
+            <label>Boot ISO</label>
+            <select id="vmIso">
+                <option value="">— No ISO (import disk directly) —</option>
+                {% for iso in isos %}
+                <option value="{{ iso.path }}">{{ iso.name }} ({{ iso.size_mb }} MB)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Progress steps -->
+        <div class="create-progress" id="createProgress">
+            <div class="steps-row">
+                <div class="step-item" data-step="0">
+                    <div class="step-circle">⚙️</div>
+                    <div class="step-lbl">Config</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-item" data-step="1">
+                    <div class="step-circle">💾</div>
+                    <div class="step-lbl">Disk</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-item" data-step="2">
+                    <div class="step-circle">🌐</div>
+                    <div class="step-lbl">Network</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-item" data-step="3">
+                    <div class="step-circle">✅</div>
+                    <div class="step-lbl">Done</div>
+                </div>
+            </div>
+            <div class="progress-msg" id="progressStatus"></div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-ghost"
+                    onclick="document.getElementById('createModal').classList.remove('active')">
+                Cancel
+            </button>
+            <button class="btn btn-primary" id="createBtn" onclick="createVM()">
+                🚀 &nbsp;Launch Instance
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Toast ──
+function showToast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderColor = color || 'var(--border2)';
+    t.style.display = 'block';
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.style.display = 'none', 4000);
+}
+
+// ── Helpers ──
+const getBtn = (name, action) =>
+    document.querySelector(`[data-vm="${name}"][data-action="${action}"]`);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function shakeInput(id) {
+    const el = document.getElementById(id);
+    el.style.borderColor = 'var(--red)';
+    el.style.animation = 'shake 0.4s ease';
+    setTimeout(() => { el.style.animation = ''; }, 420);
+}
+
+function activateStep(steps, index, msg) {
+    steps.forEach((s, i) => {
+        s.classList.remove('active', 'done');
+        if (i < index)  s.classList.add('done');
+        if (i === index) s.classList.add('active');
+    });
+    const el = document.getElementById('progressStatus');
+    if (el) el.textContent = msg;
+}
+
+// ── START VM ──
+async function startVM(name) {
+    const btn = getBtn(name, 'start');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Starting...';
+    showToast(`⏳ Starting ${name}...`, 'var(--accent)');
+
+    const res  = await fetch(`/api/vm/${name}/start`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+        btn.innerHTML = '✅ Started!';
+        showToast(`✅ ${name} is now running!`, 'var(--green)');
+        setTimeout(() => location.reload(), 1400);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '▶ Start';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+// ── STOP VM ──
+async function stopVM(name) {
+    if (!confirm(`Stop "${name}"?\n\nWill shut down gracefully.`)) return;
+
+    const btn = getBtn(name, 'stop');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Stopping...';
+    document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+    showToast(`⏳ Stopping ${name}... please wait`, 'var(--orange)');
+
+    const res  = await fetch(`/api/vm/${name}/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: false })
+    });
+    const data = await res.json();
+    document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+
+    if (data.success) {
+        btn.innerHTML = '✅ Stopped';
+        showToast(`⏹ ${name} stopped`, 'var(--orange)');
+        setTimeout(() => location.reload(), 1200);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '⏹ Stop';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+// ── DELETE VM ──
+async function deleteVM(name) {
+    if (!confirm(`Delete "${name}"?\n\nThis permanently removes the VM and its disk.`)) return;
+    if (!confirm(`Final confirmation — delete "${name}" forever?`)) return;
+
+    const btn = getBtn(name, 'delete');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+    showToast(`🗑 Deleting ${name}...`, 'var(--red)');
+
+    const res  = await fetch(`/api/vm/${name}/delete`, { method: 'DELETE' });
+    const data = await res.json();
+
+    if (data.success) {
+        const row = btn.closest('tr');
+        row.style.transition = 'opacity 0.4s, transform 0.4s';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(16px)';
+        showToast(`🗑 ${name} deleted`, 'var(--text3)');
+        setTimeout(() => location.reload(), 700);
+    } else {
+        document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+        btn.disabled = false;
+        btn.innerHTML = '🗑 Delete';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+// ── CREATE VM ──
+async function createVM() {
+    const name = document.getElementById('vmName').value.trim();
+    const ram  = document.getElementById('vmRam').value;
+    const cpus = document.getElementById('vmCpus').value;
+    const disk = document.getElementById('vmDisk').value;
+    const iso  = document.getElementById('vmIso').value || null;
+
+    if (!name)                           { shakeInput('vmName'); showToast('❌ VM name is required', 'var(--red)'); return; }
+    if (!/^[a-zA-Z0-9\-_]+$/.test(name)){ shakeInput('vmName'); showToast('❌ Letters, numbers, - _ only', 'var(--red)'); return; }
+    if (parseInt(ram)  < 512)            { shakeInput('vmRam');  showToast('❌ Minimum RAM is 512 MB', 'var(--red)'); return; }
+    if (parseInt(disk) < 5)             { shakeInput('vmDisk'); showToast('❌ Minimum disk is 5 GB',  'var(--red)'); return; }
+
+    const createBtn = document.getElementById('createBtn');
+    const progress  = document.getElementById('createProgress');
+    const steps     = document.querySelectorAll('.step-item');
+
+    createBtn.disabled = true;
+    createBtn.innerHTML = '<span class="spinner"></span> Creating...';
+    progress.style.display = 'block';
+
+    activateStep(steps, 0, '⚙️ Preparing configuration...');
+    await sleep(700);
+    activateStep(steps, 1, '💾 Allocating disk image...');
+    await sleep(900);
+    activateStep(steps, 2, '🌐 Connecting to virtual network...');
+
+    const res  = await fetch('/api/vm/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name,
+            ram_mb:  parseInt(ram),
+            vcpus:   parseInt(cpus),
+            disk_gb: parseInt(disk),
+            iso_path: iso
+        })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        activateStep(steps, 3, '✅ Instance launched successfully!');
+        createBtn.innerHTML = '✅ Launched!';
+        showToast(`✅ "${name}" created!`, 'var(--green)');
+        setTimeout(() => {
+            document.getElementById('createModal').classList.remove('active');
+            location.reload();
+        }, 1400);
+    } else {
+        steps.forEach(s => s.classList.remove('active', 'done'));
+        progress.style.display = 'none';
+        createBtn.disabled = false;
+        createBtn.innerHTML = '🚀 &nbsp;Launch Instance';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+// Auto-refresh every 60 seconds
+setInterval(() => location.reload(), 60000);
+</script>
+</body>
+</html>

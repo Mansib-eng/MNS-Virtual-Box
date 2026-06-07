@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ vm.name }} — MNS VirtualBox</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:       #080b12;
+            --bg2:      #0d1117;
+            --bg3:      #131a24;
+            --border:   #1e2d3d;
+            --border2:  #243447;
+            --accent:   #00d4ff;
+            --green:    #00e676;
+            --green2:   #00c853;
+            --red:      #ff5252;
+            --orange:   #ffab40;
+            --text:     #e8eef4;
+            --text2:    #7a8fa6;
+            --text3:    #3d5166;
+            --font:     'Syne', sans-serif;
+            --mono:     'JetBrains Mono', monospace;
+        }
+
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── NAVBAR ── */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(8,11,18,0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 62px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .nav-logo {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--accent), #0066ff);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            box-shadow: 0 0 18px rgba(0,212,255,0.3);
+            text-decoration: none;
+        }
+        .nav-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            text-decoration: none;
+            color: var(--text);
+        }
+        .nav-title span { color: var(--accent); }
+        .nav-pill {
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            background: rgba(0,212,255,0.08);
+            border: 1px solid rgba(0,212,255,0.15);
+            color: var(--accent);
+            padding: 3px 9px;
+            border-radius: 20px;
+            letter-spacing: 0.05em;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text2);
+        }
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 7px var(--green);
+            animation: blink 2s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* ── MAIN ── */
+        .main {
+            position: relative;
+            z-index: 1;
+            padding: 30px 32px;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        /* ── BREADCRUMB ── */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text3);
+            margin-bottom: 24px;
+        }
+        .breadcrumb a {
+            color: var(--text2);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .breadcrumb a:hover { color: var(--accent); }
+        .breadcrumb-sep { color: var(--text3); }
+        .breadcrumb-current { color: var(--text); }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 28px;
+            gap: 20px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .vm-avatar {
+            width: 56px;
+            height: 56px;
+            background: var(--bg3);
+            border: 1px solid var(--border2);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            flex-shrink: 0;
+        }
+        .vm-header-info {}
+        .vm-header-name {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .vm-header-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        /* ── BADGE ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            font-weight: 500;
+        }
+        .bdot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .badge-running {
+            background: rgba(0,230,118,0.08);
+            color: var(--green);
+            border: 1px solid rgba(0,230,118,0.18);
+        }
+        .badge-running .bdot {
+            background: var(--green);
+            box-shadow: 0 0 5px var(--green);
+            animation: blink 2s infinite;
+        }
+        .badge-stopped {
+            background: rgba(255,82,82,0.07);
+            color: var(--red);
+            border: 1px solid rgba(255,82,82,0.15);
+        }
+        .badge-stopped .bdot { background: var(--red); }
+        .badge-paused {
+            background: rgba(255,171,64,0.07);
+            color: var(--orange);
+            border: 1px solid rgba(255,171,64,0.15);
+        }
+        .badge-paused .bdot { background: var(--orange); }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--font);
+            font-size: 0.82rem;
+            font-weight: 700;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+        .btn:not(:disabled):hover  { transform: translateY(-1px); }
+        .btn:not(:disabled):active { transform: translateY(0); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #0088dd);
+            color: #000;
+            font-weight: 800;
+            box-shadow: 0 4px 14px rgba(0,212,255,0.25);
+        }
+        .btn-success {
+            background: rgba(0,230,118,0.08);
+            color: var(--green);
+            border: 1px solid rgba(0,230,118,0.2);
+        }
+        .btn-success:not(:disabled):hover {
+            background: rgba(0,230,118,0.15);
+            border-color: var(--green);
+        }
+        .btn-warning {
+            background: rgba(255,171,64,0.08);
+            color: var(--orange);
+            border: 1px solid rgba(255,171,64,0.2);
+        }
+        .btn-warning:not(:disabled):hover {
+            background: rgba(255,171,64,0.15);
+            border-color: var(--orange);
+        }
+        .btn-danger {
+            background: rgba(255,82,82,0.08);
+            color: var(--red);
+            border: 1px solid rgba(255,82,82,0.18);
+        }
+        .btn-danger:not(:disabled):hover {
+            background: rgba(255,82,82,0.15);
+            border-color: var(--red);
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text2);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:not(:disabled):hover {
+            background: var(--bg3);
+            color: var(--text);
+        }
+
+        /* ── GRID LAYOUT ── */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .detail-grid.three {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 22px;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: var(--border2); }
+
+        .card-title {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text3);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title::before {
+            content: '';
+            width: 3px;
+            height: 11px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        /* ── INFO ROWS ── */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .info-row:first-child { padding-top: 0; }
+
+        .info-key {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text2);
+        }
+        .info-val {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--text);
+            text-align: right;
+        }
+        .info-val.accent { color: var(--accent); }
+        .info-val.green  { color: var(--green);  }
+        .info-val.red    { color: var(--red);    }
+
+        /* ── STAT BIG ── */
+        .stat-big {
+            text-align: center;
+            padding: 8px 0;
+        }
+        .stat-big-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            color: var(--accent);
+        }
+        .stat-big-label {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--text3);
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stat-big-sub {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text2);
+            margin-top: 4px;
+        }
+
+        /* ── MINI BAR ── */
+        .mini-bar {
+            margin-top: 12px;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .mini-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent), #0077cc);
+        }
+
+        /* ── VNC SECTION ── */
+        .vnc-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .vnc-info {}
+        .vnc-label {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }
+        .vnc-port {
+            font-family: var(--mono);
+            font-size: 1rem;
+            font-weight: 500;
+            color: {% if vm.state == 'running' %}var(--accent){% else %}var(--text3){% endif %};
+        }
+
+        /* ── UUID BOX ── */
+        .uuid-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text2);
+            word-break: break-all;
+            letter-spacing: 0.02em;
+        }
+
+        /* ── BACK LINK ── */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text2);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .back-btn:hover { color: var(--accent); }
+
+        /* ── CHIP ── */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text2);
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed;
+            bottom: 26px;
+            right: 26px;
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            border-radius: 10px;
+            padding: 11px 18px;
+            z-index: 999;
+            display: none;
+            font-size: 0.83rem;
+            font-weight: 600;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            max-width: 300px;
+            animation: toastin 0.25s ease;
+        }
+        @keyframes toastin {
+            from { transform: translateX(16px); opacity:0; }
+            to   { transform: translateX(0);    opacity:1; }
+        }
+
+        /* ── SPINNER ── */
+        .spinner {
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+    <div class="nav-brand">
+        <a href="/" class="nav-logo">⚡</a>
+        <a href="/" class="nav-title">MNS <span>VirtualBox</span></a>
+        <div class="nav-pill">KVM · QEMU · libvirt</div>
+    </div>
+    <div class="nav-right">
+        <div class="status-dot"></div>
+        Hypervisor Active
+    </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="/">Dashboard</a>
+        <span class="breadcrumb-sep">›</span>
+        <a href="/">Virtual Machines</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current">{{ vm.name }}</span>
+    </div>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="header-left">
+            <div class="vm-avatar">🖥</div>
+            <div class="vm-header-info">
+                <div class="vm-header-name">{{ vm.name }}</div>
+                <div class="vm-header-meta">
+                    <span class="badge badge-{{ vm.state }}">
+                        <span class="bdot"></span>
+                        {{ vm.state }}
+                    </span>
+                    <span class="chip">⚡ {{ vm.vcpus }} vCPU</span>
+                    <span class="chip">🧠 {{ vm.ram_mb }} MB RAM</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-actions">
+            {% if vm.state != 'running' %}
+            <button class="btn btn-success" id="actionBtn"
+                    onclick="startVM('{{ vm.name }}')">
+                ▶ Start
+            </button>
+            {% else %}
+            <button class="btn btn-warning" id="actionBtn"
+                    onclick="stopVM('{{ vm.name }}')">
+                ⏹ Stop
+            </button>
+            {% endif %}
+            <button class="btn btn-danger" id="deleteBtn"
+                    onclick="deleteVM('{{ vm.name }}')">
+                🗑 Delete
+            </button>
+            <a href="/" class="btn btn-ghost">← Back</a>
+        </div>
+    </div>
+
+    <!-- Top Stats Row -->
+    <div class="detail-grid three" style="margin-bottom:16px">
+        <div class="card">
+            <div class="stat-big">
+                <div class="stat-big-value">{{ vm.vcpus }}</div>
+                <div class="stat-big-label">Virtual CPUs</div>
+                <div class="stat-big-sub">KVM hardware-assisted</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="stat-big">
+                <div class="stat-big-value" style="color:var(--green)">{{ vm.ram_mb }}</div>
+                <div class="stat-big-label">RAM (MB)</div>
+                <div class="stat-big-sub">{{ (vm.ram_mb / 1024) | round(1) }} GB allocated</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="stat-big">
+                <div class="stat-big-value"
+                     style="color:{% if vm.state == 'running' %}var(--green){% else %}var(--red){% endif %}">
+                    {{ vm.state | upper }}
+                </div>
+                <div class="stat-big-label">Instance State</div>
+                <div class="stat-big-sub">KVM/QEMU hypervisor</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Row -->
+    <div class="detail-grid">
+
+        <!-- VM Configuration -->
+        <div class="card">
+            <div class="card-title">VM Configuration</div>
+            <div class="info-row">
+                <span class="info-key">Instance Name</span>
+                <span class="info-val accent">{{ vm.name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">State</span>
+                <span class="info-val {% if vm.state == 'running' %}green{% elif vm.state == 'stopped' %}red{% endif %}">
+                    {{ vm.state }}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">vCPUs</span>
+                <span class="info-val">{{ vm.vcpus }} core(s)</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">RAM Allocated</span>
+                <span class="info-val">{{ vm.ram_mb }} MB</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Architecture</span>
+                <span class="info-val">x86_64</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Hypervisor</span>
+                <span class="info-val">KVM / QEMU</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Machine Type</span>
+                <span class="info-val">pc-i440fx</span>
+            </div>
+        </div>
+
+        <!-- Network & Console -->
+        <div class="card">
+            <div class="card-title">Network & Console</div>
+
+            <div class="info-row">
+                <span class="info-key">Network</span>
+                <span class="info-val accent">default (NAT)</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Interface</span>
+                <span class="info-val">virtio-net</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Graphics</span>
+                <span class="info-val">VNC</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">VNC Port</span>
+                <span class="info-val {% if vm.vnc_port and vm.state == 'running' %}accent{% else %}{% endif %}">
+                    {% if vm.vnc_port and vm.vnc_port != '-1' %}
+                        {{ vm.vnc_port }}
+                    {% elif vm.state == 'running' %}
+                        Auto-assigned
+                    {% else %}
+                        — (VM stopped)
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Display</span>
+                <span class="info-val">0.0.0.0 (all interfaces)</span>
+            </div>
+
+            {% if vm.state == 'running' %}
+            <div style="margin-top:14px">
+                <div class="vnc-box">
+                    <div class="vnc-info">
+                        <div class="vnc-label">VNC Console Access</div>
+                        <div class="vnc-port">
+                            vncviewer localhost:{% if vm.vnc_port %}{{ vm.vnc_port }}{% else %}5900{% endif %}
+                        </div>
+                    </div>
+                    <button class="btn btn-ghost"
+                            onclick="copyVNC()">
+                        📋 Copy
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- UUID Row -->
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Instance Identifier</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="font-family:var(--mono);font-size:0.7rem;color:var(--text3);min-width:60px">UUID</div>
+            <div class="uuid-box" style="flex:1">
+                {% if vm.uuid %}{{ vm.uuid }}{% else %}Not available{% endif %}
+            </div>
+            {% if vm.uuid %}
+            <button class="btn btn-ghost" onclick="copyUUID('{{ vm.uuid }}')">📋 Copy</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- How to Connect (only when running) -->
+    {% if vm.state == 'running' %}
+    <div class="card">
+        <div class="card-title">How to Connect to This VM</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+                <div style="font-family:var(--mono);font-size:0.7rem;color:var(--text2);margin-bottom:8px">
+                    Install VNC Viewer
+                </div>
+                <div class="uuid-box">sudo apt install tigervnc-viewer</div>
+            </div>
+            <div>
+                <div style="font-family:var(--mono);font-size:0.7rem;color:var(--text2);margin-bottom:8px">
+                    Connect to Console
+                </div>
+                <div class="uuid-box">vncviewer localhost:{% if vm.vnc_port %}{{ vm.vnc_port }}{% else %}5900{% endif %}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div><!-- /main -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+function showToast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderColor = color || 'var(--border2)';
+    t.style.display = 'block';
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.style.display = 'none', 4000);
+}
+
+function copyUUID(uuid) {
+    navigator.clipboard.writeText(uuid).then(() => {
+        showToast('✅ UUID copied to clipboard', 'var(--accent)');
+    });
+}
+
+function copyVNC() {
+    const port = '{{ vm.vnc_port if vm.vnc_port else "5900" }}';
+    navigator.clipboard.writeText(`vncviewer localhost:${port}`).then(() => {
+        showToast('✅ VNC command copied!', 'var(--accent)');
+    });
+}
+
+async function startVM(name) {
+    const btn = document.getElementById('actionBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Starting...';
+    showToast(`⏳ Starting ${name}...`, 'var(--accent)');
+
+    const res  = await fetch(`/api/vm/${name}/start`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+        btn.innerHTML = '✅ Started!';
+        showToast(`✅ ${name} is now running!`, 'var(--green)');
+        setTimeout(() => location.reload(), 1400);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '▶ Start';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+async function stopVM(name) {
+    if (!confirm(`Stop "${name}"?\n\nWill shut down gracefully.`)) return;
+
+    const btn = document.getElementById('actionBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Stopping...';
+    document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+    showToast(`⏳ Stopping ${name}... please wait`, 'var(--orange)');
+
+    const res  = await fetch(`/api/vm/${name}/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: false })
+    });
+    const data = await res.json();
+    document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+
+    if (data.success) {
+        showToast(`⏹ ${name} stopped`, 'var(--orange)');
+        setTimeout(() => location.reload(), 1200);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '⏹ Stop';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+async function deleteVM(name) {
+    if (!confirm(`Delete "${name}"?\n\nThis permanently removes the VM and its disk.`)) return;
+    if (!confirm(`Final confirmation — delete "${name}" forever?`)) return;
+
+    const btn = document.getElementById('deleteBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Deleting...';
+    document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+    showToast(`🗑 Deleting ${name}...`, 'var(--red)');
+
+    const res  = await fetch(`/api/vm/${name}/delete`, { method: 'DELETE' });
+    const data = await res.json();
+
+    if (data.success) {
+        showToast(`🗑 ${name} deleted — redirecting...`, 'var(--text3)');
+        setTimeout(() => window.location.href = '/', 1200);
+    } else {
+        document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+        btn.disabled = false;
+        btn.innerHTML = '🗑 Delete';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+</script>
+</body>
+</html>
