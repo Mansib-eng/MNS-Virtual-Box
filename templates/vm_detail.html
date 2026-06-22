@@ -550,15 +550,24 @@
             </div>
         </div>
         <div class="header-actions">
-            {% if vm.state != 'running' %}
-            <button class="btn btn-success" id="actionBtn"
-                    onclick="startVM('{{ vm.name }}')">
-                ▶ Start
-            </button>
-            {% else %}
+            {% if vm.state == 'running' %}
             <button class="btn btn-warning" id="actionBtn"
                     onclick="stopVM('{{ vm.name }}')">
                 ⏹ Stop
+            </button>
+            <button class="btn btn-primary" id="rebootBtn"
+                    onclick="rebootVM('{{ vm.name }}')">
+                🔄 Reboot
+            </button>
+            <button class="btn btn-ghost" id="pauseBtn"
+                    data-paused="{% if vm.state == 'paused' %}true{% else %}false{% endif %}"
+                    onclick="pauseVM('{{ vm.name }}')">
+                {% if vm.state == 'paused' %}▶ Resume{% else %}⏸ Pause{% endif %}
+            </button>
+            {% else %}
+            <button class="btn btn-success" id="actionBtn"
+                    onclick="startVM('{{ vm.name }}')">
+                ▶ Start
             </button>
             {% endif %}
             <button class="btn btn-danger" id="deleteBtn"
@@ -567,6 +576,7 @@
             </button>
             <a href="/" class="btn btn-ghost">← Back</a>
         </div>
+        
     </div>
 
     <!-- Top Stats Row -->
@@ -596,7 +606,6 @@
             </div>
         </div>
     </div>
-
     <!-- Details Row -->
     <div class="detail-grid">
 
@@ -623,7 +632,7 @@
             </div>
             <div class="info-row">
                 <span class="info-key">Architecture</span>
-                <span class="info-val">x86_64</span>
+                <span class="info-val">{{ vm.arch or 'x86_64' }}</span>
             </div>
             <div class="info-row">
                 <span class="info-key">Hypervisor</span>
@@ -631,54 +640,57 @@
             </div>
             <div class="info-row">
                 <span class="info-key">Machine Type</span>
-                <span class="info-val">pc-i440fx</span>
+                <span class="info-val">{{ vm.machine_type or 'pc' }}</span>
             </div>
         </div>
 
-        <!-- Network & Console -->
+        <!-- Storage -->
         <div class="card">
-            <div class="card-title">Network & Console</div>
-
+            <div class="card-title">Storage</div>
+            <div class="info-row">
+                <span class="info-key">Disk Format</span>
+                <span class="info-val">qcow2</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Disk Size</span>
+                <span class="info-val accent">{{ vm.disk_size_gb or '—' }} GB</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Disk Path</span>
+                <span class="info-val"
+                      style="font-size:0.65rem;word-break:break-all">
+                    {{ vm.disk_path or '—' }}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">MAC Address</span>
+                <span class="info-val">{{ vm.mac_address or '—' }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key">Guest IP</span>
+                <span class="info-val green" id="guestIP">
+                    {% if vm.state == 'running' %}Detecting...{% else %}—{% endif %}
+                </span>
+            </div>
             <div class="info-row">
                 <span class="info-key">Network</span>
                 <span class="info-val accent">default (NAT)</span>
             </div>
             <div class="info-row">
-                <span class="info-key">Interface</span>
-                <span class="info-val">virtio-net</span>
-            </div>
-            <div class="info-row">
-                <span class="info-key">Graphics</span>
-                <span class="info-val">VNC</span>
-            </div>
-            <div class="info-row">
                 <span class="info-key">VNC Port</span>
-                <span class="info-val {% if vm.vnc_port and vm.state == 'running' %}accent{% else %}{% endif %}">
-                    {% if vm.vnc_port and vm.vnc_port != '-1' %}
-                        {{ vm.vnc_port }}
-                    {% elif vm.state == 'running' %}
-                        Auto-assigned
-                    {% else %}
-                        — (VM stopped)
-                    {% endif %}
+                <span class="info-val {% if vm.vnc_port %}accent{% endif %}">
+                    {{ vm.vnc_port or '— (VM stopped)' }}
                 </span>
             </div>
-            <div class="info-row">
-                <span class="info-key">Display</span>
-                <span class="info-val">0.0.0.0 (all interfaces)</span>
-            </div>
-
-            {% if vm.state == 'running' %}
-            <div style="margin-top:14px">
+            {% if vm.state == 'running' and vm.vnc_cmd %}
+            <div style="margin-top:12px">
                 <div class="vnc-box">
-                    <div class="vnc-info">
-                        <div class="vnc-label">VNC Console Access</div>
-                        <div class="vnc-port">
-                            vncviewer localhost:{% if vm.vnc_port %}{{ vm.vnc_port }}{% else %}5900{% endif %}
-                        </div>
+                    <div>
+                        <div class="vnc-label">VNC Console Command</div>
+                        <div class="vnc-port">{{ vm.vnc_cmd }}</div>
                     </div>
                     <button class="btn btn-ghost"
-                            onclick="copyVNC()">
+                            onclick="copyText('{{ vm.vnc_cmd }}', 'VNC command copied!')">
                         📋 Copy
                     </button>
                 </div>
@@ -687,7 +699,7 @@
         </div>
 
     </div>
-
+    
     <!-- UUID Row -->
     <div class="card" style="margin-bottom:16px">
         <div class="card-title">Instance Identifier</div>
@@ -697,38 +709,58 @@
                 {% if vm.uuid %}{{ vm.uuid }}{% else %}Not available{% endif %}
             </div>
             {% if vm.uuid %}
-            <button class="btn btn-ghost" onclick="copyUUID('{{ vm.uuid }}')">📋 Copy</button>
+            <button class="btn btn-ghost" onclick="copyText('{{ vm.uuid }}', 'UUID copied!')">📋 Copy</button>
             {% endif %}
         </div>
     </div>
 
-    <!-- How to Connect (only when running) -->
+
+    <!-- Snapshots Section (EC2-style) -->
+    <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div class="card-title" style="margin-bottom:0">Snapshots</div>
+            <button class="btn btn-primary" onclick="createSnapshot()">
+                📸 Take Snapshot
+            </button>
+        </div>
+        <div id="snapshotList">
+            <div style="text-align:center;padding:30px;font-family:var(--mono);
+                        font-size:0.75rem;color:var(--text3)">
+                Loading snapshots...
+            </div>
+        </div>
+    </div>
+
+    <!-- How to Connect -->
     {% if vm.state == 'running' %}
-    <div class="card">
-        <div class="card-title">How to Connect to This VM</div>
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-title">How to Connect</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
             <div>
-                <div style="font-family:var(--mono);font-size:0.7rem;color:var(--text2);margin-bottom:8px">
+                <div style="font-family:var(--mono);font-size:0.7rem;
+                            color:var(--text2);margin-bottom:8px">
                     Install VNC Viewer
                 </div>
                 <div class="uuid-box">sudo apt install tigervnc-viewer</div>
             </div>
             <div>
-                <div style="font-family:var(--mono);font-size:0.7rem;color:var(--text2);margin-bottom:8px">
+                <div style="font-family:var(--mono);font-size:0.7rem;
+                            color:var(--text2);margin-bottom:8px">
                     Connect to Console
                 </div>
-                <div class="uuid-box">vncviewer localhost:{% if vm.vnc_port %}{{ vm.vnc_port }}{% else %}5900{% endif %}</div>
+                <div class="uuid-box">{{ vm.vnc_cmd or 'Start VM first' }}</div>
             </div>
         </div>
     </div>
     {% endif %}
 
-</div><!-- /main -->
+</div><!-- /main -->     
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Toast ──
 function showToast(msg, color) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -738,30 +770,22 @@ function showToast(msg, color) {
     t._t = setTimeout(() => t.style.display = 'none', 4000);
 }
 
-function copyUUID(uuid) {
-    navigator.clipboard.writeText(uuid).then(() => {
-        showToast('✅ UUID copied to clipboard', 'var(--accent)');
+// ── Copy helper ──
+function copyText(text, msg) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('✅ ' + msg, 'var(--accent)');
     });
 }
 
-function copyVNC() {
-    const port = '{{ vm.vnc_port if vm.vnc_port else "5900" }}';
-    navigator.clipboard.writeText(`vncviewer localhost:${port}`).then(() => {
-        showToast('✅ VNC command copied!', 'var(--accent)');
-    });
-}
-
+// ── START ──
 async function startVM(name) {
     const btn = document.getElementById('actionBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Starting...';
     showToast(`⏳ Starting ${name}...`, 'var(--accent)');
-
     const res  = await fetch(`/api/vm/${name}/start`, { method: 'POST' });
     const data = await res.json();
-
     if (data.success) {
-        btn.innerHTML = '✅ Started!';
         showToast(`✅ ${name} is now running!`, 'var(--green)');
         setTimeout(() => location.reload(), 1400);
     } else {
@@ -771,15 +795,14 @@ async function startVM(name) {
     }
 }
 
+// ── STOP ──
 async function stopVM(name) {
-    if (!confirm(`Stop "${name}"?\n\nWill shut down gracefully.`)) return;
-
+    if (!confirm(`Stop "${name}"?`)) return;
     const btn = document.getElementById('actionBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Stopping...';
     document.querySelectorAll('.btn').forEach(b => b.disabled = true);
-    showToast(`⏳ Stopping ${name}... please wait`, 'var(--orange)');
-
+    showToast(`⏳ Stopping ${name}...`, 'var(--orange)');
     const res  = await fetch(`/api/vm/${name}/stop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -787,7 +810,6 @@ async function stopVM(name) {
     });
     const data = await res.json();
     document.querySelectorAll('.btn').forEach(b => b.disabled = false);
-
     if (data.success) {
         showToast(`⏹ ${name} stopped`, 'var(--orange)');
         setTimeout(() => location.reload(), 1200);
@@ -798,21 +820,57 @@ async function stopVM(name) {
     }
 }
 
-async function deleteVM(name) {
-    if (!confirm(`Delete "${name}"?\n\nThis permanently removes the VM and its disk.`)) return;
-    if (!confirm(`Final confirmation — delete "${name}" forever?`)) return;
+// ── REBOOT ──
+async function rebootVM(name) {
+    if (!confirm(`Reboot "${name}"?`)) return;
+    const btn = document.getElementById('rebootBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Rebooting...';
+    showToast(`🔄 Rebooting ${name}...`, 'var(--accent)');
+    const res  = await fetch(`/api/vm/${name}/reboot`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        showToast(`✅ ${name} is rebooting!`, 'var(--green)');
+        setTimeout(() => location.reload(), 3000);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '🔄 Reboot';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
 
+// ── PAUSE / RESUME ──
+async function pauseVM(name) {
+    const btn = document.getElementById('pauseBtn');
+    btn.disabled = true;
+    const isPaused = btn.dataset.paused === 'true';
+    btn.innerHTML = `<span class="spinner"></span> ${isPaused ? 'Resuming' : 'Pausing'}...`;
+    const endpoint = isPaused ? 'resume' : 'pause';
+    const res  = await fetch(`/api/vm/${name}/${endpoint}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        showToast(`✅ ${name} ${isPaused ? 'resumed' : 'paused'}!`, 'var(--accent)');
+        setTimeout(() => location.reload(), 1000);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = isPaused ? '▶ Resume' : '⏸ Pause';
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+// ── DELETE ──
+async function deleteVM(name) {
+    if (!confirm(`Delete "${name}"?\nThis permanently removes the VM and its disk.`)) return;
+    if (!confirm(`Final confirmation — delete "${name}" forever?`)) return;
     const btn = document.getElementById('deleteBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Deleting...';
     document.querySelectorAll('.btn').forEach(b => b.disabled = true);
     showToast(`🗑 Deleting ${name}...`, 'var(--red)');
-
     const res  = await fetch(`/api/vm/${name}/delete`, { method: 'DELETE' });
     const data = await res.json();
-
     if (data.success) {
-        showToast(`🗑 ${name} deleted — redirecting...`, 'var(--text3)');
+        showToast(`🗑 ${name} deleted`, 'var(--text3)');
         setTimeout(() => window.location.href = '/', 1200);
     } else {
         document.querySelectorAll('.btn').forEach(b => b.disabled = false);
@@ -821,6 +879,143 @@ async function deleteVM(name) {
         showToast(`❌ ${data.error}`, 'var(--red)');
     }
 }
+
+// ── SNAPSHOTS ──
+async function loadSnapshots() {
+    const name = '{{ vm.name }}';
+    const res  = await fetch(`/api/vm/${name}/snapshots`);
+    const data = await res.json();
+    const el   = document.getElementById('snapshotList');
+
+    if (!data.success || data.snapshots.length === 0) {
+        el.innerHTML = `
+            <div style="text-align:center;padding:30px;
+                        font-family:var(--mono);font-size:0.75rem;color:var(--text3)">
+                No snapshots yet — click "📸 Take Snapshot" to create one
+            </div>`;
+        return;
+    }
+
+    el.innerHTML = `
+        <table style="width:100%;border-collapse:collapse">
+            <thead>
+                <tr style="background:var(--bg3);border-bottom:1px solid var(--border)">
+                    <th style="padding:10px 16px;text-align:left;font-family:var(--mono);
+                               font-size:0.63rem;color:var(--text3);text-transform:uppercase;
+                               letter-spacing:0.08em">Snapshot Name</th>
+                    <th style="padding:10px 16px;text-align:left;font-family:var(--mono);
+                               font-size:0.63rem;color:var(--text3);text-transform:uppercase;
+                               letter-spacing:0.08em">Status</th>
+                    <th style="padding:10px 16px;text-align:left;font-family:var(--mono);
+                               font-size:0.63rem;color:var(--text3);text-transform:uppercase;
+                               letter-spacing:0.08em">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.snapshots.map(s => `
+                <tr style="border-bottom:1px solid var(--border)">
+                    <td style="padding:12px 16px;font-family:var(--mono);
+                               font-size:0.8rem;color:var(--text)">
+                        📸 ${s.name}
+                    </td>
+                    <td style="padding:12px 16px">
+                        ${s.current
+                            ? '<span style="font-family:var(--mono);font-size:0.7rem;color:var(--green)">● Current</span>'
+                            : '<span style="font-family:var(--mono);font-size:0.7rem;color:var(--text3)">○ Previous</span>'
+                        }
+                    </td>
+                    <td style="padding:12px 16px">
+                        <div style="display:flex;gap:8px">
+                            <button class="btn btn-success"
+                                    style="padding:5px 12px;font-size:0.75rem"
+                                    onclick="restoreSnapshot('{{ vm.name }}', '${s.name}')">
+                                ↩ Restore
+                            </button>
+                            <button class="btn btn-danger"
+                                    style="padding:5px 12px;font-size:0.75rem"
+                                    onclick="deleteSnapshot('{{ vm.name }}', '${s.name}')">
+                                🗑 Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+}
+
+async function createSnapshot() {
+    const name     = '{{ vm.name }}';
+    const snapName = prompt('Snapshot name (leave blank for auto):');
+    if (snapName === null) return; // cancelled
+
+    showToast('📸 Creating snapshot...', 'var(--accent)');
+    const res  = await fetch(`/api/vm/${name}/snapshot/create`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ snapshot_name: snapName || null })
+    });
+    const data = await res.json();
+    if (data.success) {
+        showToast(`✅ Snapshot "${data.result.snapshot}" created!`, 'var(--green)');
+        loadSnapshots();
+    } else {
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+async function restoreSnapshot(name, snapName) {
+    if (!confirm(`Restore "${name}" to snapshot "${snapName}"?\nCurrent state will be lost.`)) return;
+    showToast(`↩ Restoring to ${snapName}...`, 'var(--accent)');
+    const res  = await fetch(`/api/vm/${name}/snapshot/${snapName}/restore`,
+                             { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        showToast(`✅ Restored to "${snapName}"!`, 'var(--green)');
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+async function deleteSnapshot(name, snapName) {
+    if (!confirm(`Delete snapshot "${snapName}"?`)) return;
+    const res  = await fetch(`/api/vm/${name}/snapshot/${snapName}/delete`,
+                             { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+        showToast(`🗑 Snapshot deleted`, 'var(--text3)');
+        loadSnapshots();
+    } else {
+        showToast(`❌ ${data.error}`, 'var(--red)');
+    }
+}
+
+// ── GUEST IP DETECTION ──
+async function detectGuestIP() {
+    const name = '{{ vm.name }}';
+    {% if vm.state == 'running' %}
+    const res  = await fetch(`/api/vm/${name}/ip`);
+    const data = await res.json();
+    const el   = document.getElementById('guestIP');
+    if (data.success && data.ip) {
+        el.textContent = data.ip;
+        el.style.color = 'var(--green)';
+    } else {
+        el.textContent = 'Not available';
+        el.style.color = 'var(--text3)';
+    }
+    {% endif %}
+}
+
+// ── ON PAGE LOAD ──
+window.addEventListener('load', () => {
+    loadSnapshots();
+    detectGuestIP();
+});
 </script>
+   
+  
+       
+    
 </body>
 </html>

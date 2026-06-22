@@ -678,8 +678,7 @@
             <small>Dashboard</small>
             Virtual Machines
         </div>
-        <button class="btn btn-primary"
-                onclick="document.getElementById('createModal').classList.add('active')">
+        <button class="btn btn-primary" onclick="openCreateModal()">
             ＋ &nbsp;New VM
         </button>
     </div>
@@ -817,6 +816,29 @@
             <button class="modal-close"
                     onclick="document.getElementById('createModal').classList.remove('active')">✕</button>
         </div>
+        <!-- Hardware Warning Box -->
+        <div id="hwWarning" style="display:none;
+             background:rgba(255,171,64,0.08);
+             border:1px solid rgba(255,171,64,0.3);
+             border-radius:10px;
+             padding:12px 16px;
+             margin-bottom:16px;">
+            <div style="font-family:var(--mono);font-size:0.72rem;
+                        color:var(--orange);font-weight:600;
+                        margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                ⚠ Hardware Limitations Detected
+            </div>
+            <ul id="hwWarningList"
+                style="list-style:none;
+                       font-family:var(--mono);
+                       font-size:0.68rem;
+                       color:var(--text2);
+                       display:flex;
+                       flex-direction:column;
+                       gap:4px">
+            </ul>
+        </div>
+        
 
         <div class="form-group">
             <label>Instance Name</label>
@@ -830,29 +852,35 @@
             <div class="form-group">
                 <label>RAM (MB)</label>
                 <input type="number" id="vmRam" value="2048" min="512" step="512">
-                <div class="form-hint">Min 512 MB</div>
+                <div class="form-hint">Min 512 MB · <span id="ramAvail" style="color:var(--accent)"></span></div>
             </div>
             <div class="form-group">
                 <label>vCPUs</label>
                 <input type="number" id="vmCpus" value="1" min="1" max="8">
-                <div class="form-hint">Max 8 cores</div>
+                <div class="form-hint"><span id="cpuAvail" style="color:var(--accent)"></span></div>
             </div>
         </div>
 
         <div class="form-group">
             <label>Disk Size (GB)</label>
             <input type="number" id="vmDisk" value="10" min="5">
-            <div class="form-hint">Min 5 GB · stored as .qcow2 image</div>
+            <div class="form-hint">Min 5 GB · <span id="diskAvail" style="color:var(--accent)"></span></div>
         </div>
 
         <div class="form-group">
-            <label>Boot ISO</label>
+            <label>Boot Image (AMI)</label>
             <select id="vmIso">
-                <option value="">— No ISO (import disk directly) —</option>
+                <option value="" disabled selected>— Select a boot image —</option>
                 {% for iso in isos %}
-                <option value="{{ iso.path }}">{{ iso.name }} ({{ iso.size_mb }} MB)</option>
+                <option value="{{ iso.path }}">
+                    {{ iso.display_name }} · {{ iso.size_mb }} MB · {{ iso.type }}
+                </option>
                 {% endfor %}
             </select>
+            <div class="form-hint">
+                Place .iso / .img / .qcow2 files in the
+                <code style="color:var(--accent)">iso/</code> folder
+            </div>
         </div>
 
         <!-- Progress steps -->
@@ -1065,8 +1093,289 @@ async function createVM() {
     }
 }
 
-// Auto-refresh every 60 seconds
-setInterval(() => location.reload(), 60000);
+// ── OPEN MODAL WITH HARDWARE CHECK ──
+async function openCreateModal() {
+    document.getElementById('createModal').classList.add('active');
+    await checkHardwareLimits();
+}
+
+async function checkHardwareLimits() {
+    try {
+        const res  = await fetch('/api/host/limits');
+        const data = await res.json();
+
+        if (!data.success) return;
+
+        const limits   = data.limits;
+        const warnings = [];
+
+        // ── RAM check ──
+        const ramAvail = limits.ram.available_mb;
+        const ramEl    = document.getElementById('ramAvail');
+        if (ramEl) {
+            ramEl.textContent = `${ramAvail} MB available`;
+            if (ramAvail < 512) ramEl.style.color = 'var(--red)';
+            else if (ramAvail < 1024) ramEl.style.color = 'var(--orange)';
+            else ramEl.style.color = 'var(--green)';
+        }
+        if (ramAvail < 512) {
+            warnings.push(`Only ${ramAvail} MB RAM available — stop a running VM first`);
+        } else if (ramAvail < 1024) {
+            warnings.push(`Low RAM: only ${ramAvail} MB available`);
+        }
+
+        // Update RAM input max
+        const ramInput = document.getElementById('vmRam');
+        if (ramInput) ramInput.max = ramAvail;
+
+        // ── CPU check ──
+        const cpuAvail = limits.cpu.available;
+        const cpuTotal = limits.cpu.total;
+        const cpuEl    = document.getElementById('cpuAvail');
+        if (cpuEl) {
+            cpuEl.textContent = `${cpuAvail} of ${cpuTotal} cores available`;
+            if (cpuAvail < 1) cpuEl.style.color = 'var(--red)';
+            else cpuEl.style.color = 'var(--accent)';
+        }
+        if (cpuAvail < 1) {
+            warnings.push(`No CPU cores available — all ${cpuTotal} cores allocated`);
+        }
+
+        // Update CPU input max
+        const cpuInput = document.getElementById('vmCpus');
+        if (cpuInput) cpuInput.max = Math.max(1, cpuAvail);
+
+        // ── Disk check ──
+        const diskAvail = limits.disk.available_gb;
+        const diskEl    = document.getElementById('diskAvail');
+        if (diskEl) {
+            diskEl.textContent = `${diskAvail} GB available on host`;
+            if (diskAvail < 5)  diskEl.style.color = 'var(--red)';
+            else if (diskAvail < 15) diskEl.style.color = 'var(--orange)';
+            else diskEl.style.color = 'var(--green)';
+        }
+        if (diskAvail < 5) {
+            warnings.push(`Only ${diskAvail} GB disk space — not enough to create a VM`);
+        } else if (diskAvail < 15) {
+            warnings.push(`Low disk space: only ${diskAvail} GB available`);
+        }
+
+        // Update disk input max
+        const diskInput = document.getElementById('vmDisk');
+        if (diskInput) {
+            diskInput.max   = diskAvail;
+            diskInput.value = Math.min(parseInt(diskInput.value), diskAvail);
+        }
+
+        // ── Show warning box ──
+        const box  = document.getElementById('hwWarning');
+        const list = document.getElementById('hwWarningList');
+
+        if (warnings.length > 0 && box && list) {
+            list.innerHTML = warnings
+                .map(w => `<li style="display:flex;align-items:flex-start;gap:6px">
+                               <span style="color:var(--orange);flex-shrink:0">•</span>
+                               ${w}
+                           </li>`)
+                .join('');
+            box.style.display = 'block';
+        } else if (box) {
+            box.style.display = 'none';
+        }
+
+    } catch(e) {
+        console.error('Hardware check failed:', e);
+    }
+}
+
+// ══════════════════════════════════════════
+// REAL-TIME SSE — Server-Sent Events
+// ══════════════════════════════════════════
+
+let sseConnection  = null;
+let sseRetryCount  = 0;
+const MAX_RETRIES  = 10;
+
+function connectSSE() {
+    if (sseConnection) sseConnection.close();
+
+    sseConnection = new EventSource('/api/events');
+
+    sseConnection.onopen = () => {
+        sseRetryCount = 0;
+        updateConnectionStatus(true);
+        console.log('SSE connected ✅');
+    };
+
+    sseConnection.onmessage = (event) => {
+        // Skip heartbeat comments
+        if (!event.data || event.data.startsWith(':')) return;
+
+        try {
+            const data = JSON.parse(event.data);
+            if (data.error) return;
+
+            // Update stats cards without page reload
+            updateStats(data.host_stats);
+
+            // Update VM table rows
+            updateVMTable(data.vms);
+
+            // Update running count
+            updateRunningCount(data.running, data.total);
+
+        } catch(e) {
+            console.error('SSE parse error:', e);
+        }
+    };
+
+    sseConnection.onerror = () => {
+        updateConnectionStatus(false);
+        sseConnection.close();
+        sseRetryCount++;
+
+        if (sseRetryCount <= MAX_RETRIES) {
+            const delay = Math.min(1000 * sseRetryCount, 10000);
+            console.log(`SSE retry in ${delay}ms (attempt ${sseRetryCount})`);
+            setTimeout(connectSSE, delay);
+        } else {
+            console.log('SSE max retries — falling back to 30s reload');
+            setInterval(() => location.reload(), 30000);
+        }
+    };
+}
+
+// ── Update connection status dot in navbar ──
+function updateConnectionStatus(connected) {
+    const dot = document.querySelector('.status-dot');
+    const txt = document.querySelector('.nav-right');
+    if (!dot) return;
+
+    if (connected) {
+        dot.style.background   = 'var(--green)';
+        dot.style.boxShadow    = '0 0 7px var(--green)';
+    } else {
+        dot.style.background   = 'var(--orange)';
+        dot.style.boxShadow    = '0 0 7px var(--orange)';
+    }
+}
+
+// ── Update stat cards ──
+function updateStats(stats) {
+    if (!stats) return;
+
+    // CPU
+    const cpuVal = document.querySelector('.stat-value.c-accent');
+    const cpuBar = document.querySelector('.stat-bar-fill:not(.g)');
+    if (cpuVal) cpuVal.textContent = stats.cpu_percent + '%';
+    if (cpuBar) cpuBar.style.width = stats.cpu_percent + '%';
+
+    // RAM
+    const ramCards = document.querySelectorAll('.stat-card');
+    ramCards.forEach(card => {
+        const label = card.querySelector('.stat-label');
+        if (label && label.textContent === 'Memory') {
+            const val = card.querySelector('.stat-value');
+            const sub = card.querySelector('.stat-sub');
+            if (val) val.innerHTML = `${stats.ram_used_gb}<span style="font-size:1rem;color:var(--text2)"> GB</span>`;
+            if (sub) sub.textContent = `of ${stats.ram_total_gb} GB total`;
+            const bar = card.querySelector('.stat-bar-fill');
+            if (bar) bar.style.width = stats.ram_percent + '%';
+        }
+        if (label && label.textContent === 'Disk') {
+            const val = card.querySelector('.stat-value');
+            const sub = card.querySelector('.stat-sub');
+            if (val) val.innerHTML = `${stats.disk_used_gb}<span style="font-size:1rem;color:var(--text2)"> GB</span>`;
+            if (sub) sub.textContent = `of ${stats.disk_total_gb} GB used`;
+            const pct = Math.min(Math.round(stats.disk_used_gb / stats.disk_total_gb * 100), 100);
+            const bar = card.querySelector('.stat-bar-fill');
+            if (bar) bar.style.width = pct + '%';
+        }
+    });
+}
+
+// ── Update running + total count ──
+function updateRunningCount(running, total) {
+    const cards = document.querySelectorAll('.stat-card');
+    cards.forEach(card => {
+        const label = card.querySelector('.stat-label');
+        if (label && label.textContent === 'Total VMs') {
+            const val = card.querySelector('.stat-value');
+            if (val) val.textContent = total;
+        }
+        if (label && label.textContent === 'Running') {
+            const val = card.querySelector('.stat-value');
+            if (val) val.textContent = running;
+        }
+    });
+}
+
+// ── Update VM table rows ──
+function updateVMTable(vms) {
+    if (!vms) return;
+
+    const tbody = document.querySelector('.vm-table tbody');
+    if (!tbody) return;
+
+    // Build a map of current VM states
+    const vmMap = {};
+    vms.forEach(vm => vmMap[vm.name] = vm);
+
+    // Update existing rows
+    tbody.querySelectorAll('tr').forEach(row => {
+        const nameEl = row.querySelector('a');
+        if (!nameEl) return;
+
+        const vmName = nameEl.textContent.trim();
+        const vm     = vmMap[vmName];
+        if (!vm) return;
+
+        // Update status badge
+        const badge = row.querySelector('.badge');
+        if (badge) {
+            badge.className = `badge badge-${vm.state}`;
+            const dot = badge.querySelector('.bdot');
+            badge.innerHTML = `<span class="bdot"></span> ${vm.state}`;
+        }
+
+        // Update action buttons
+        const actionRow = row.querySelector('.action-row');
+        if (actionRow) {
+            const startBtn = actionRow.querySelector('[data-action="start"]');
+            const stopBtn  = actionRow.querySelector('[data-action="stop"]');
+
+            if (vm.state === 'running' && startBtn) {
+                // Replace start with stop
+                startBtn.outerHTML = `
+                    <button class="btn btn-warning"
+                            data-vm="${vm.name}"
+                            data-action="stop"
+                            onclick="stopVM('${vm.name}')">
+                        ⏹ Stop
+                    </button>`;
+            } else if (vm.state !== 'running' && stopBtn) {
+                // Replace stop with start
+                stopBtn.outerHTML = `
+                    <button class="btn btn-success"
+                            data-vm="${vm.name}"
+                            data-action="start"
+                            onclick="startVM('${vm.name}')">
+                        ▶ Start
+                    </button>`;
+            }
+        }
+    });
+}
+
+// ── Start SSE on page load ──
+window.addEventListener('load', () => {
+    connectSSE();
+});
+
+// ── Clean up on page unload ──
+window.addEventListener('beforeunload', () => {
+    if (sseConnection) sseConnection.close();
+});
 </script>
 </body>
 </html>
