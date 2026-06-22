@@ -40,9 +40,6 @@ platform built from scratch as a Cloud Lab Evaluation course project. It combine
 - **Hardware-aware provisioning** — detects available CPU, RAM, and disk before
   VM creation and warns the user, just like EC2 quota checks
 
-Built using **AI-assisted development** (Claude by Anthropic) as permitted by the
-project brief: *"You can use any LLMs to build it."*
-
 ---
 
 ## ⚖️ How It Compares to VirtualBox & AWS EC2
@@ -596,26 +593,13 @@ sudo lsof -i :5000 && sudo kill <PID>
 
 ## 👤 Author
 
-**Student Name:** *(Your Name)*
-**Student ID:** *(Your Student ID)*
-**Course:** Cloud Computing / Virtualization Lab
+**Student Name:** *Ibnul Mansib*
+**Student ID:** *2020331061*
+**Course:** Cloud Computing Lab
 **Submission Date:** June 2026
-**Institution:** *(Your University / College)*
-**Host Machine:** HP EliteBook 840 G6 — Ubuntu 24.04 LTS (Noble)
+**Institution:** *Shahjalal University of Science and Technology*
 
 ---
 
-## 📝 Note on AI Assistance
-
-This project was built with the assistance of **Claude (Anthropic)** for code
-generation, debugging, and architecture guidance, as explicitly permitted by the
-course project brief:
-
-> *"You can use any LLMs to build it."*
-
-All code was reviewed, understood, tested, and deployed by the student on a
-physical Ubuntu 24.04 machine with real KVM virtualization.
-
----
 
 *Built with ❤️ using Python · Flask · KVM · QEMU · libvirt · SSE on Ubuntu 24.04 LTS*
